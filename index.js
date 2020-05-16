@@ -4,7 +4,7 @@ const aws = require('aws-sdk');
 const WAIT_DEFAULT_DELAY_SEC = 15;
 
 // Deploy to a service that uses the 'ECS' deployment controller
-async function updateEcsService(ecs, clusterName, service, waitForService, waitForMinutes) {
+async function updateEcsService(ecs, clusterName, service, waitForMinutes) {
   core.debug('Updating the service');
   await ecs.updateService({
     cluster: clusterName,
@@ -14,20 +14,16 @@ async function updateEcsService(ecs, clusterName, service, waitForService, waitF
   core.info(`Deployment started. Watch this deployment's progress in the Amazon ECS console: https://console.aws.amazon.com/ecs/home?region=${aws.config.region}#/clusters/${clusterName}/services/${service}/events`);
 
   // Wait for service stability
-  if (waitForService && waitForService.toLowerCase() === 'true') {
-    core.debug(`Waiting for the service to become stable. Will wait for ${waitForMinutes} minutes`);
-    const maxAttempts = (waitForMinutes * 60) / WAIT_DEFAULT_DELAY_SEC;
-    await ecs.waitFor('servicesStable', {
-      services: [service],
-      cluster: clusterName,
-      $waiter: {
-        delay: WAIT_DEFAULT_DELAY_SEC,
-        maxAttempts: maxAttempts
-      }
-    }).promise();
-  } else {
-    core.debug('Not waiting for the service to become stable');
-  }
+  core.debug(`Waiting for the service to become stable. Will wait for ${waitForMinutes} minutes`);
+  const maxAttempts = (waitForMinutes * 60) / WAIT_DEFAULT_DELAY_SEC;
+  await ecs.waitFor('servicesStable', {
+    services: [service],
+    cluster: clusterName,
+    $waiter: {
+      delay: WAIT_DEFAULT_DELAY_SEC,
+      maxAttempts: maxAttempts
+    }
+  }).promise();
 }
 
 async function run() {
@@ -45,7 +41,7 @@ async function run() {
     if (service) {
       const clusterName = cluster ? cluster : 'default';
 
-      await updateEcsService(ecs, clusterName, service, waitForService, waitForMinutes);
+      await updateEcsService(ecs, clusterName, service, waitForMinutes);
     } else {
       core.debug('Service was not specified, no service updated');
     }
